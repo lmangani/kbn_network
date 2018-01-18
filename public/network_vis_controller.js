@@ -73,7 +73,6 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
     $scope.$watchMulti(['esResponse', 'vis.params'], function ([resp]) {
         if (resp) {
             $("#" + loading_id).hide();
-	    console.log('AGGS LEN:',$scope.vis.aggs.bySchemaName['first'].length);
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////NODE-NODE Type///////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -152,7 +151,6 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
                             if(colorNodeAggId && buck[colorNodeAggId].buckets.length > 0){
                                 if(colorDicc[buck[colorNodeAggId].buckets[0].key]){
                                     dataParsed[i].nodeColorKey = buck[colorNodeAggId].buckets[0].key;
-				    //dataParsed[i].nodeColorKeyValue = buck[colorNodeAggId].buckets[0].value;
                                     dataParsed[i].nodeColorValue = colorDicc[buck[colorNodeAggId].buckets[0].key];
                                 }else{
                                     //repeat to find a NO-REPEATED color
@@ -161,7 +159,6 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
                                         if(usedColors.indexOf(confirmColor) == -1){
                                             colorDicc[buck[colorNodeAggId].buckets[0].key] = confirmColor;
                                             dataParsed[i].nodeColorKey = buck[colorNodeAggId].buckets[0].key;
-					    //dataParsed[i].nodeColorKeyValue = buck[colorNodeAggId].buckets[0].value;
                                             dataParsed[i].nodeColorValue = colorDicc[buck[colorNodeAggId].buckets[0].key];
                                             usedColors.push(confirmColor);
                                             break;
@@ -277,9 +274,6 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 //////////////////////////////////////////////////////////Creation of the network with the library//////////////////////////////////////////////////////////
                 var nodesDataSet = new visN.DataSet(dataNodes);
                 var edgesDataSet = new visN.DataSet(dataEdges);
-
-		console.log('VIS-NODES:',dataNodes);
-		console.log('VIS-EDGES:',dataEdges);
 
                 var container = document.getElementById(network_id);
                 container.style.height = container.getBoundingClientRect().height;
@@ -593,9 +587,6 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
                 var nodesDataSet = new visN.DataSet(dataNodes);
                 var edgesDataSet = new visN.DataSet(dataEdges);
 
-		console.log('VIS-NODES:',dataNodes);
-		console.log('VIS-EDGES:',dataEdges);
-
                 // Creation of the network
                 var container = document.getElementById(network_id);
                 //Set the Height
@@ -667,7 +658,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             }else if($scope.vis.aggs.bySchemaName['first'].length >= 2 && !$scope.vis.aggs.bySchemaName['second']){
 
-		console.log('X-NODE-NODE-RELATION:',$scope.vis.aggs.bySchemaName['first'], resp.aggregations);
+		console.log('X-NODE-NODE-RELATION');
 
                 $scope.initialShows();
                 $(".secondNode").hide();
@@ -699,7 +690,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 		                        }
 
 				});
-			} else { console.log('Dup!',agg.key,ixx,found); }
+			}
 
 		        if (akey) {
 				dataEdges.push({ from: dataNodesId[akey], value: agg.doc_count, to: dataNodesId[agg.key] });
@@ -744,10 +735,6 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 //////////////////////////////////////////////////////////Creation of the network with the library//////////////////////////////////////////////////////////
                 var nodesDataSet = new visN.DataSet(dataNodes);
                 var edgesDataSet = new visN.DataSet(dataEdges);
-
-		console.log('VIS-NODES-ID:',dataNodesId);
-		console.log('VIS-NODES:',dataNodes);
-		console.log('VIS-EDGES:',dataEdges);
 
                 // Creation of the network
                 var container = document.getElementById(network_id);
