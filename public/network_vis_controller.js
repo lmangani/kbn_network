@@ -73,10 +73,11 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
     $scope.$watchMulti(['esResponse', 'vis.params'], function ([resp]) {
         if (resp) {
             $("#" + loading_id).hide();
+	    console.log('AGGS LEN:',$scope.vis.aggs.bySchemaName['first'].length);
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////NODE-NODE Type///////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-            if($scope.vis.aggs.bySchemaName['first'].length >= 1 && !$scope.vis.aggs.bySchemaName['second']){
+            if($scope.vis.aggs.bySchemaName['first'].length >= 1 && $scope.vis.aggs.bySchemaName['first'].length < 2 && !$scope.vis.aggs.bySchemaName['second']){
                 $scope.initialShows();
                 $(".secondNode").show();
                 // Retrieve the id of the configured tags aggregation
@@ -151,6 +152,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
                             if(colorNodeAggId && buck[colorNodeAggId].buckets.length > 0){
                                 if(colorDicc[buck[colorNodeAggId].buckets[0].key]){
                                     dataParsed[i].nodeColorKey = buck[colorNodeAggId].buckets[0].key;
+				    //dataParsed[i].nodeColorKeyValue = buck[colorNodeAggId].buckets[0].value;
                                     dataParsed[i].nodeColorValue = colorDicc[buck[colorNodeAggId].buckets[0].key];
                                 }else{
                                     //repeat to find a NO-REPEATED color
@@ -159,6 +161,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
                                         if(usedColors.indexOf(confirmColor) == -1){
                                             colorDicc[buck[colorNodeAggId].buckets[0].key] = confirmColor;
                                             dataParsed[i].nodeColorKey = buck[colorNodeAggId].buckets[0].key;
+					    //dataParsed[i].nodeColorKeyValue = buck[colorNodeAggId].buckets[0].value;
                                             dataParsed[i].nodeColorValue = colorDicc[buck[colorNodeAggId].buckets[0].key];
                                             usedColors.push(confirmColor);
                                             break;
@@ -274,6 +277,9 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 //////////////////////////////////////////////////////////Creation of the network with the library//////////////////////////////////////////////////////////
                 var nodesDataSet = new visN.DataSet(dataNodes);
                 var edgesDataSet = new visN.DataSet(dataEdges);
+
+		console.log('VIS-NODES:',dataNodes);
+		console.log('VIS-EDGES:',dataEdges);
 
                 var container = document.getElementById(network_id);
                 container.style.height = container.getBoundingClientRect().height;
@@ -472,6 +478,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
                         if(colorNodeAggId && buck[colorNodeAggId].buckets.length > 0){
                             if(colorDicc[buck[colorNodeAggId].buckets[0].key]){
                                 dataParsed[i].nodeColorKey = buck[colorNodeAggId].buckets[0].key;
+				//dataParsed[i].nodeColorKeyValue = buck[colorNodeAggId].buckets[0].value;
                                 dataParsed[i].nodeColorValue = colorDicc[buck[colorNodeAggId].buckets[0].key];
                             }else{
                                 while(true){
@@ -586,6 +593,161 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
                 var nodesDataSet = new visN.DataSet(dataNodes);
                 var edgesDataSet = new visN.DataSet(dataEdges);
 
+		console.log('VIS-NODES:',dataNodes);
+		console.log('VIS-EDGES:',dataEdges);
+
+                // Creation of the network
+                var container = document.getElementById(network_id);
+                //Set the Height
+                container.style.height = container.getBoundingClientRect().height;
+                container.height = container.getBoundingClientRect().height;
+                //Set the Data
+                var data = {
+                    nodes: nodesDataSet,
+                    edges: edgesDataSet
+                };
+                //Set the Options
+                var options = {
+                    height: container.getBoundingClientRect().height.toString(),
+                    physics: {
+                        barnesHut: {
+                            gravitationalConstant: $scope.vis.params.gravitationalConstant,
+                            springConstant: $scope.vis.params.springConstant,
+                            springLength: 500
+                        }
+                    },
+                    edges: {
+                        arrows: {
+                            to: {
+                                enabled: $scope.vis.params.displayArrow,
+                                scaleFactor: $scope.vis.params.scaleArrow,
+                                type: $scope.vis.params.shapeArrow
+                            }
+                        },
+                        arrowStrikethrough: false,
+                        smooth: {
+                            type: $scope.vis.params.smoothType
+                        },
+                        scaling:{
+                            min:$scope.vis.params.minEdgeSize,
+                            max:$scope.vis.params.maxEdgeSize
+                        }
+                    },
+                    interaction: {
+                        hideEdgesOnDrag: true,
+                        hover: true
+                    },
+                    nodes: {
+                        physics: $scope.vis.params.nodePhysics,
+                        scaling:{
+                            min:$scope.vis.params.minNodeSize,
+                            max:$scope.vis.params.maxNodeSize
+                        }
+                    },
+                    layout: {
+                        improvedLayout: false
+                    }
+                }
+                console.log("Create network now");
+                var network = new visN.Network(container, data, options);
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+                $scope.startDynamicResize(network);
+
+                network.on("afterDrawing", function (canvasP) {
+                    $("#" + loading_id).hide();
+                    // Draw the color legend if Node Color is activated
+                    if($scope.vis.aggs.bySchemaName['colornode'] && $scope.vis.params.showColorLegend){
+                        $scope.drawColorLegend(usedColors, colorDicc);
+                    }
+                });
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////NODE-NODE-RELATION Type///////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            }else if($scope.vis.aggs.bySchemaName['first'].length >= 2 && !$scope.vis.aggs.bySchemaName['second']){
+
+		console.log('X-NODE-NODE-RELATION:',$scope.vis.aggs.bySchemaName['first'], resp.aggregations);
+
+                $scope.initialShows();
+                $(".secondNode").hide();
+
+		var dataNodes = [];
+		var dataEdges = [];
+		var dataNodesId = [];
+		var ixx = 0;
+
+		var buckeroo = function(data,akey){
+		  for (var kxx in data) {
+		    if (!data.hasOwnProperty(kxx)) continue;
+		    var agg = data[kxx];
+		    if (agg.key && agg.key.length>0) {
+			var found = dataNodes.some(function (el) {
+			    return el.key === agg.key;
+			});
+		        if (!found||!dataNodesId[agg.key]) {
+				dataNodesId[agg.key] = ixx;
+			        dataNodes.push({
+					id: dataNodesId[agg.key],
+					key: agg.key,
+					label: agg.key,
+					value: agg.doc_count,
+					color: randomColor(),
+					shape: $scope.vis.params.shapeFirstNode,
+        		                font : {
+		                          color: $scope.vis.params.labelColor
+		                        }
+
+				});
+			} else { console.log('Dup!',agg.key,ixx,found); }
+
+		        if (akey) {
+				dataEdges.push({ from: dataNodesId[akey], value: agg.doc_count, to: dataNodesId[agg.key] });
+			}
+
+			ixx++;
+		    }
+		    if (agg.buckets) {
+		      buckeroo(agg.buckets,agg.key);
+		    } else {
+		      // level down
+		      for (var ak in agg) {
+		         if (agg[ak].buckets) buckeroo(agg[ak].buckets,agg.key);
+		      }
+		    }
+		  };
+		}
+
+                if($scope.vis.aggs.bySchemaName['colornode']){
+                    var colorNodeAggId = $scope.vis.aggs.bySchemaName['colornode'][0].id;
+                    var colorNodeAggName = $scope.vis.aggs.bySchemaName['colornode'][0].params.field.displayName;
+                    var colorDicc = {};
+                    var usedColors = [];
+
+                    //Check if "Node Color" is the last selection
+                    if($scope.vis.aggs.indexOf($scope.vis.aggs.bySchemaName['colornode'][0]) <= $scope.vis.aggs.indexOf($scope.vis.aggs.bySchemaName['second'][0])){
+                        $scope.errorNodeColor();
+                        return;
+                    }
+                }
+
+                // Retrieve the metrics aggregation configured
+                if($scope.vis.aggs.bySchemaName['size_node']){
+                    var metricsAgg_sizeNode = $scope.vis.aggs.bySchemaName['size_node'][0];
+                }
+                if($scope.vis.aggs.bySchemaName['size_edge']){
+                    var metricsAgg_sizeEdge = $scope.vis.aggs.bySchemaName['size_edge'][0];
+                }
+
+//////////////// BUCKET SCANNER ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		buckeroo(resp.aggregations);
+//////////////////////////////////////////////////////////Creation of the network with the library//////////////////////////////////////////////////////////
+                var nodesDataSet = new visN.DataSet(dataNodes);
+                var edgesDataSet = new visN.DataSet(dataEdges);
+
+		console.log('VIS-NODES-ID:',dataNodesId);
+		console.log('VIS-NODES:',dataNodes);
+		console.log('VIS-EDGES:',dataEdges);
 
                 // Creation of the network
                 var container = document.getElementById(network_id);
