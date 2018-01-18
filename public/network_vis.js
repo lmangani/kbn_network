@@ -94,7 +94,7 @@ function NetworkVisTypeProvider(Private) {
         mustBeFirst: 'true',
         title: 'Node',
         min: 1,
-        max: 2,
+        max: 4,
         aggFilter: ['terms']//Only have sense choose terms
       },
       {
