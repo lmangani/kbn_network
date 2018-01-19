@@ -1,4 +1,5 @@
 import { uiModules } from 'ui/modules';
+import { notify } from 'ui/notify';
 
 // get the kibana/table_vis module, and make sure that it requires the "kibana" module if it
 // didn't already
@@ -16,26 +17,11 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
     var network_id = "net_" + $scope.$id;
     var loading_id = "loading_" + $scope.$parent.$id;
 
-    $scope.errorNodeColor = function(){
-      $("#" + network_id).hide();
-      $("#" + loading_id).hide();
-      $("#errorHtml").html("<h1><strong>ERROR</strong>: Node Color must be the LAST selection</h1>");
-      $("#errorHtml").show();
-    }
-
-    $scope.errorNodeNodeRelation = function(){
-      $("#" + network_id).hide();
-      $("#" + loading_id).hide();
-      $("#errorHtml").html("<h1><strong>ERROR</strong>: You can only choose Node-Node or Node-Relation</h1>");
-      $("#errorHtml").show();
-    }
-
     $scope.errorCustom = function(message){
-      if(!message) message = "General Error";
+      if(!message) message = "General Error. Please undo your changes.";
       $("#" + network_id).hide();
       $("#" + loading_id).hide();
-      $("#errorHtml").html(message);
-      $("#errorHtml").show();
+      notify.error(message);
     }
 
     $scope.initialShows = function(){
@@ -409,7 +395,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 
                     //Check if "Node Color" is the last selection
                     if($scope.vis.aggs.indexOf($scope.vis.aggs.bySchemaName['colornode'][0]) <= $scope.vis.aggs.indexOf($scope.vis.aggs.bySchemaName['second'][0])){
-                        $scope.errorNodeColor();
+                        $scope.errorCustom('Error: You can only choose Node-Node or Node-Relation');
                         return;
                     }
                 }
@@ -837,7 +823,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
                 });
 
             }else{
-                $scope.errorNodeNodeRelation();
+                $scope.errorCustom('Error: You can only choose Node-Node or Node-Relation');
             }
         }
     });
