@@ -30,6 +30,14 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
       $("#errorHtml").show();
     }
 
+    $scope.errorCustom = function(message){
+      if(!message) message = "General Error";
+      $("#" + network_id).hide();
+      $("#" + loading_id).hide();
+      $("#errorHtml").html(message);
+      $("#errorHtml").show();
+    }
+
     $scope.initialShows = function(){
       $("#" + network_id).show();
       $("#" + loading_id).show();
@@ -731,7 +739,11 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
                 }
 
 //////////////// BUCKET SCANNER ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		buckeroo(resp.aggregations);
+		try {
+			buckeroo(resp.aggregations);
+		} catch(e) {
+	                $scope.errorCustom(e);
+		}
 //////////////////////////////////////////////////////////Creation of the network with the library//////////////////////////////////////////////////////////
                 var nodesDataSet = new visN.DataSet(dataNodes);
                 var edgesDataSet = new visN.DataSet(dataEdges);
