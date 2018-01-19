@@ -818,7 +818,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
                     $("#" + loading_id).hide();
                     // Draw the color legend if Node Color is activated
                     if($scope.vis.params.showColorLegend){
-                        $scope.drawColorLegend(dataNotesCol, dataNodesCol);
+                        $scope.drawColorLegend(dataNodesId, dataNodesCol);
                     }
                 });
 
