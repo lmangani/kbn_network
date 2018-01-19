@@ -1,6 +1,8 @@
 import { uiModules } from 'ui/modules';
 import { notify } from 'ui/notify';
-import FilterBarQueryFilterProvider from 'ui/filter_bar/query_filter';
+import { FilterBarQueryFilterProvider } from 'ui/filter_bar/query_filter';
+import { AggTypesBucketsCreateFilterTermsProvider } from 'ui/agg_types/buckets/create_filter/terms';
+import { AggTypesBucketsCreateFilterFiltersProvider } from 'ui/agg_types/buckets/create_filter/filters';
 
 // get the kibana/table_vis module, and make sure that it requires the "kibana" module if it
 // didn't already
@@ -19,11 +21,15 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
     var loading_id = "loading_" + $scope.$parent.$id;
 
     const queryFilter = Private(FilterBarQueryFilterProvider);
+    const createTermsFilter = Private(AggTypesBucketsCreateFilterTermsProvider);
+    const createFilter = Private(AggTypesBucketsCreateFilterFiltersProvider);
 
-    $scope.errorCustom = function(message){
+    $scope.errorCustom = function(message, hide){
       if(!message) message = "General Error. Please undo your changes.";
-      $("#" + network_id).hide();
-      $("#" + loading_id).hide();
+      if(hide) {
+	$("#" + network_id).hide();
+      	$("#" + loading_id).hide();
+      }
       notify.error(message);
     }
 
@@ -398,7 +404,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 
                     //Check if "Node Color" is the last selection
                     if($scope.vis.aggs.indexOf($scope.vis.aggs.bySchemaName['colornode'][0]) <= $scope.vis.aggs.indexOf($scope.vis.aggs.bySchemaName['second'][0])){
-                        $scope.errorCustom('Error: You can only choose Node-Node or Node-Relation');
+                        $scope.errorCustom('Error: You can only choose Node-Node or Node-Relation', 1);
                         return;
                     }
                 }
@@ -710,7 +716,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 		                    var inPopup = "<p>" + agg.key + "</p>";
 		                    if(akey){
 		                      inPopup += "<p> Parent: " + akey + "</p>";
-		                    }
+				    }
 		                    nodeReturn.title = inPopup;
 		                }
 
@@ -724,19 +730,22 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 
 			ixx++;
 		    }
+
 		    if (agg.buckets) {
-		      buckeroo(agg.buckets,agg.key);
+		        buckeroo(agg.buckets,agg.key);
 		    } else {
 		      // level down
 		      for (var ak in agg) {
-		         if (agg[ak].buckets) buckeroo(agg[ak].buckets,agg.key);
+		         if (agg[ak].buckets) {
+				buckeroo(agg[ak].buckets,agg.key);
+			}
 		      }
 		    }
 		  }
 		}
 
                 if($scope.vis.aggs.bySchemaName['colornode']){
-                        $scope.errorCustom('Color Node is not allowed in Multi-Node mode. Please remove and try again!');
+                        $scope.errorCustom('Color Node is not allowed in Multi-Node mode. Please remove and try again!',1);
                         return;
                 }
 
@@ -825,28 +834,48 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
                     }
                 });
 
-                network.on("doubleClick", function (canvasP) {
-			console.log('Double-Click Filter',params);
-			var key = dataNodesId[params.node];
-			if (!key) return;
-			var xfilter = { meta: {
-			      disabled: false,
-			      negate: false,
-			      key: key
-			   }
-			};
-			try {
-				queryFilter.addFilters([xfilter]);
-				queryFilter.emit('update')
-				   .then(function () {
-				     queryFilter.emit('fetch');
-				   });
+                network.on("doubleClick", function (params) {
+			if(!params.nodes) return;
+			for (var zkey in dataNodesId) {
+			    if (dataNodesId[zkey] === params.nodes[0]) {
+				console.log('Double-Click Key:',zkey, params);
 
-			} catch(e) { $scope.errorCustom(e); }
+				try {
+					/* console.log('Current Filters:', queryFilter.getFilters() ); */
+
+					/*
+					var xaggConfig = aggConfig;
+					if ($scope.vis.aggs.byTypeName.filters && $scope.vis.aggs.byTypeName.filters[0] ) {
+						aggConfig = $scope.vis.aggs.byTypeName.filters[0];
+					} else if ($scope.vis.aggs.bySchemaName.segment && $scope.vis.aggs.bySchemaName.segment[0] ) {
+						aggConfig = $scope.vis.aggs.bySchemaName.segment[0];
+					}
+	      				var xfilter = createFilter(aggConfig, zkey);
+					if (xfilter) { queryFilter.addFilters([xfilter]); }
+					else { $scope.errorCustom('Error creating Filter for ',zkey); }
+					*/
+
+					const aggTermsConfig = $scope.vis.aggs.byTypeName.terms[0];
+	      				const xfilter = createTermsFilter(aggTermsConfig, zkey);
+	      				var xfilter = createTermsFilter(aggTermsConfig, zkey);
+					if (xfilter) { queryFilter.addFilters([xfilter]); }
+
+					/* refresh, not required in 5.5+ */
+					/*
+					 queryFilter.emit('update')
+					   .then(function () {
+					     queryFilter.emit('fetch');
+					   });
+					*/
+
+				} catch(e) { $scope.errorCustom(e); }
+			    }
+			};
+
 		});
 
             }else{
-                $scope.errorCustom('Error: You can only choose Node-Node or Node-Relation');
+                $scope.errorCustom('Error: You can only choose Node-Node or Node-Relation',1);
             }
         }
     });
