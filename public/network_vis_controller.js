@@ -480,7 +480,6 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
                         if(colorNodeAggId && buck[colorNodeAggId].buckets.length > 0){
                             if(colorDicc[buck[colorNodeAggId].buckets[0].key]){
                                 dataParsed[i].nodeColorKey = buck[colorNodeAggId].buckets[0].key;
-				//dataParsed[i].nodeColorKeyValue = buck[colorNodeAggId].buckets[0].value;
                                 dataParsed[i].nodeColorValue = colorDicc[buck[colorNodeAggId].buckets[0].key];
                             }else{
                                 while(true){
@@ -674,7 +673,19 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 		var dataNodes = [];
 		var dataEdges = [];
 		var dataNodesId = [];
+		var dataNodesCol = [];
 		var ixx = 0;
+
+		var getRandomColor = function(){
+		    while(true){
+			var confirmColor = randomColor();
+                        if(dataNodesCol.indexOf(confirmColor) == -1){
+                             dataNodesCol.push(confirmColor);
+                             return confirmColor;
+                        }
+		    }
+
+		}
 
 		var buckeroo = function(data,akey){
 		  for (var kxx in data) {
@@ -686,18 +697,36 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 			});
 		        if (!found||!dataNodesId[agg.key]) {
 				dataNodesId[agg.key] = ixx;
-			        dataNodes.push({
+				dataNodesCol[agg.key] = randomColor();
+
+			        var nodeReturn = {
 					id: dataNodesId[agg.key],
 					key: agg.key,
 					label: agg.key,
 					value: agg.doc_count,
-					color: randomColor(),
+					color: getRandomColor(),
 					shape: $scope.vis.params.shapeFirstNode,
         		                font : {
 		                          color: $scope.vis.params.labelColor
 		                        }
+				};
 
-				});
+		                //If activated, show the labels
+			        if($scope.vis.params.showLabels){
+		                    nodeReturn.label = bucket.key;
+		                }
+
+		                //If activated, show the popups
+		                if($scope.vis.params.showPopup){
+		                    var inPopup = "<p>" + agg.key + "</p>";
+		                    if(akey){
+		                      inPopup += "<p> Parent: " + akey + "</p>";
+		                    }
+		                    nodeReturn.title = inPopup;
+		                }
+
+			        dataNodes.push(nodeReturn);
+
 			}
 
 		        if (akey) {
@@ -714,20 +743,12 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 		         if (agg[ak].buckets) buckeroo(agg[ak].buckets,agg.key);
 		      }
 		    }
-		  };
+		  }
 		}
 
                 if($scope.vis.aggs.bySchemaName['colornode']){
-                    var colorNodeAggId = $scope.vis.aggs.bySchemaName['colornode'][0].id;
-                    var colorNodeAggName = $scope.vis.aggs.bySchemaName['colornode'][0].params.field.displayName;
-                    var colorDicc = {};
-                    var usedColors = [];
-
-                    //Check if "Node Color" is the last selection
-                    if($scope.vis.aggs.indexOf($scope.vis.aggs.bySchemaName['colornode'][0]) <= $scope.vis.aggs.indexOf($scope.vis.aggs.bySchemaName['second'][0])){
-                        $scope.errorNodeColor();
+                        $scope.errorCustom('Color Node is not allowed in Multi-Node mode. Please remove and try again!');
                         return;
-                    }
                 }
 
                 // Retrieve the metrics aggregation configured
@@ -742,7 +763,8 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 		try {
 			buckeroo(resp.aggregations);
 		} catch(e) {
-	                $scope.errorCustom(e);
+	                $scope.errorCustom('OOps! Aggs to Graph error: '+e);
+			return;
 		}
 //////////////////////////////////////////////////////////Creation of the network with the library//////////////////////////////////////////////////////////
                 var nodesDataSet = new visN.DataSet(dataNodes);
