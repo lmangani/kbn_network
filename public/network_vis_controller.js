@@ -713,7 +713,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 
 		                //If activated, show the labels
 			        if($scope.vis.params.showLabels){
-		                    nodeReturn.label = bucket.key;
+		                    nodeReturn.label = agg.key;
 		                }
 
 		                //If activated, show the popups
