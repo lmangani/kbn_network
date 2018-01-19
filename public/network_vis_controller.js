@@ -1,5 +1,6 @@
 import { uiModules } from 'ui/modules';
 import { notify } from 'ui/notify';
+import FilterBarQueryFilterProvider from 'ui/filter_bar/query_filter';
 
 // get the kibana/table_vis module, and make sure that it requires the "kibana" module if it
 // didn't already
@@ -16,6 +17,8 @@ const ResizeSensor = require('css-element-queries/src/ResizeSensor');
 module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
     var network_id = "net_" + $scope.$id;
     var loading_id = "loading_" + $scope.$parent.$id;
+
+    const queryFilter = Private(FilterBarQueryFilterProvider);
 
     $scope.errorCustom = function(message){
       if(!message) message = "General Error. Please undo your changes.";
@@ -821,6 +824,26 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
                         $scope.drawColorLegend(dataNodesId, dataNodesCol);
                     }
                 });
+
+                network.on("doubleClick", function (canvasP) {
+			console.log('Double-Click Filter',params);
+			var key = dataNodesId[params.node];
+			if (!key) return;
+			var xfilter = { meta: {
+			      disabled: false,
+			      negate: false,
+			      key: key
+			   }
+			};
+			try {
+				queryFilter.addFilters([xfilter]);
+				queryFilter.emit('update')
+				   .then(function () {
+				     queryFilter.emit('fetch');
+				   });
+
+			} catch(e) { $scope.errorCustom(e); }
+		});
 
             }else{
                 $scope.errorCustom('Error: You can only choose Node-Node or Node-Relation');
