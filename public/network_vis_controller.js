@@ -808,7 +808,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
                         improvedLayout: false
                     }
                 }
-                console.log("Create network now");
+                console.log("Create aggs network now");
                 var network = new visN.Network(container, data, options);
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -817,7 +817,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
                 network.on("afterDrawing", function (canvasP) {
                     $("#" + loading_id).hide();
                     // Draw the color legend if Node Color is activated
-                    if($scope.vis.aggs.bySchemaName['colornode'] && $scope.vis.params.showColorLegend){
+                    if($scope.vis.params.showColorLegend){
                         $scope.drawColorLegend(usedColors, colorDicc);
                     }
                 });
