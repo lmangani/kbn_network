@@ -27,6 +27,7 @@ function NetworkVisTypeProvider(Private) {
         showLabels: true,
         showPopup: false,
         nodeFilter: false,
+	hideEdgesOnDrag: false,
         showColorLegend: true,
         nodePhysics: true,
         firstNodeColor: '#FD7BC4',

@@ -627,7 +627,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
                         }
                     },
                     interaction: {
-                        hideEdgesOnDrag: true,
+                        hideEdgesOnDrag: $scope.vis.params.hideEdgesOnDrag,
                         hover: true
                     },
                     nodes: {
@@ -669,6 +669,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 		var dataEdges = [];
 		var dataNodesId = [];
 		var dataNodesCol = [];
+		var dataBuckets = [];
 		var ixx = 0;
 
 		var getRandomColor = function(){
@@ -682,14 +683,37 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 
 		}
 
+		var mapBuckets = function(){
+		  try {
+			for (var bi=0;bi>$scope.vis.aggs.bySchemaName['first'].length;bi++){
+			  if ($scope.vis.aggs.bySchemaName['first'][bi] && $scope.vis.aggs.bySchemaName['first'][bi].params){
+				dataBuckets[bi] = $scope.vis.aggs.bySchemaName['first'][bi].params.field.displayName;
+				dataBuckets[$scope.vis.aggs.bySchemaName['first'][bi].params.field.displayName] = bi;
+			  }
+			}
+		  } catch(e) { $scope.errorCustom('ERROR MAPPING BUCKETS: '+e); }
+		}
+
 		var buckeroo = function(data,akey){
 		  for (var kxx in data) {
 		    if (!data.hasOwnProperty(kxx)) continue;
 		    var agg = data[kxx];
+
+		    	// Bucket Positions
+		    	var indexBuck = Object.keys(agg).filter(item => item != 'doc_count').filter(item => item != 'key');
+			if (indexBuck[0] && $scope.vis.aggs.bySchemaName['first'][ parseInt(indexBuck[0]) -1 ] ) {
+				// console.log('CHECK PAIR:',indexBuck[0], agg.key, $scope.vis.aggs.bySchemaName['first'][ parseInt(indexBuck[0]) -1 ].params.field.displayName);
+				dataBuckets[agg.key] = parseInt(indexBuck[0] - 1);
+			} else {
+				dataBuckets[agg.key] = 0;
+			}
+
 		    if (agg.key && agg.key.length>0) {
+
 			var found = dataNodes.some(function (el) {
 			    return el.key === agg.key;
 			});
+
 		        if (!found||!dataNodesId[agg.key]) {
 				dataNodesId[agg.key] = ixx;
 				dataNodesCol[agg.key] = randomColor();
@@ -721,7 +745,6 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 		                }
 
 			        dataNodes.push(nodeReturn);
-
 			}
 
 		        if (akey) {
@@ -759,6 +782,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 
 //////////////// BUCKET SCANNER ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		try {
+			mapBuckets();
 			buckeroo(resp.aggregations);
 		} catch(e) {
 	                $scope.errorCustom('OOps! Aggs to Graph error: '+e);
@@ -806,7 +830,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
                         }
                     },
                     interaction: {
-                        hideEdgesOnDrag: true,
+                        hideEdgesOnDrag: $scope.vis.params.hideEdgesOnDrag,
                         hover: true
                     },
                     nodes: {
@@ -840,36 +864,18 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 			for (var zkey in dataNodesId) {
 			    if (dataNodesId[zkey] === params.nodes[0]) {
 				console.log('Double-Click Key:',zkey, params);
-
+				if (!dataBuckets[zkey]) {
+					$scope.errorCustom('Key '+zkey+' not available for Filtering!');
+					return;
+				}
 				try {
 					/* console.log('Current Filters:', queryFilter.getFilters() ); */
-
-					/*
-					var xaggConfig = aggConfig;
-					if ($scope.vis.aggs.byTypeName.filters && $scope.vis.aggs.byTypeName.filters[0] ) {
-						aggConfig = $scope.vis.aggs.byTypeName.filters[0];
-					} else if ($scope.vis.aggs.bySchemaName.segment && $scope.vis.aggs.bySchemaName.segment[0] ) {
-						aggConfig = $scope.vis.aggs.bySchemaName.segment[0];
-					}
-	      				var xfilter = createFilter(aggConfig, zkey);
-					if (xfilter) { queryFilter.addFilters([xfilter]); }
-					else { $scope.errorCustom('Error creating Filter for ',zkey); }
-					*/
-
-					const aggTermsConfig = $scope.vis.aggs.byTypeName.terms[0];
+					const aggTermsConfig = $scope.vis.aggs.byTypeName.terms[dataBuckets[zkey]];
 	      				const xfilter = createTermsFilter(aggTermsConfig, zkey);
 	      				var xfilter = createTermsFilter(aggTermsConfig, zkey);
 					if (xfilter) { queryFilter.addFilters([xfilter]); }
 
-					/* refresh, not required in 5.5+ */
-					/*
-					 queryFilter.emit('update')
-					   .then(function () {
-					     queryFilter.emit('fetch');
-					   });
-					*/
-
-				} catch(e) { $scope.errorCustom(e); }
+				} catch(e) { $scope.errorCustom('Filter Select: '+e); }
 			    }
 			};
 		   }
