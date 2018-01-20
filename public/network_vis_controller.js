@@ -835,6 +835,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
                 });
 
                 network.on("doubleClick", function (params) {
+                    if($scope.vis.params.nodeFilter){
 			if(!params.nodes) return;
 			for (var zkey in dataNodesId) {
 			    if (dataNodesId[zkey] === params.nodes[0]) {
@@ -871,7 +872,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 				} catch(e) { $scope.errorCustom(e); }
 			    }
 			};
-
+		   }
 		});
 
             }else{
