@@ -3,6 +3,8 @@ import { notify } from 'ui/notify';
 import { FilterBarQueryFilterProvider } from 'ui/filter_bar/query_filter';
 import { AggTypesBucketsCreateFilterTermsProvider } from 'ui/agg_types/buckets/create_filter/terms';
 import { AggTypesBucketsCreateFilterFiltersProvider } from 'ui/agg_types/buckets/create_filter/filters';
+import { AggResponseTabifyProvider } from 'ui/agg_response/tabify/tabify';
+import { FilterBarClickHandlerProvider } from 'ui/filter_bar/filter_bar_click_handler';
 
 // get the kibana/table_vis module, and make sure that it requires the "kibana" module if it
 // didn't already
@@ -16,13 +18,28 @@ const ResizeSensor = require('css-element-queries/src/ResizeSensor');
 
 // add a controller to the module, which will transform the esResponse into a
 // tabular format that we can pass to the table directive
-module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
+module.controller('KbnNetworkVisController', function ($scope, $sce, getAppState, Private) {
     var network_id = "net_" + $scope.$id;
     var loading_id = "loading_" + $scope.$parent.$id;
 
     const queryFilter = Private(FilterBarQueryFilterProvider);
     const createTermsFilter = Private(AggTypesBucketsCreateFilterTermsProvider);
     const createFilter = Private(AggTypesBucketsCreateFilterFiltersProvider);
+    const tabifyAggResponse = Private(AggResponseTabifyProvider);
+
+
+    const filterBarClickHandler = Private(FilterBarClickHandlerProvider);
+    const $state = getAppState();
+    const addFilter = filterBarClickHandler($state);
+    var onFilterClick = $scope.onFilterClick = (event, negate) => {
+	    console.log('FilterClick',event,negate);
+            // Don't add filter if a link was clicked.
+            if ($(event.target).is('a')) {
+              return;
+            }
+            addFilter({ point: { aggConfigResult: aggConfigResult }, negate });
+    };
+
 
     $scope.errorCustom = function(message, hide){
       if(!message) message = "General Error. Please undo your changes.";
@@ -662,6 +679,18 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 
 		console.log('X-NODE-NODE-RELATION');
 
+	        if (popupMenu !== undefined) {
+		    popupMenu.parentNode.removeChild(popupMenu);
+		    popupMenu = undefined;
+		}
+
+		try {
+			$scope.tableGroups = resp;
+			console.log('FULL RESP', tabifyAggResponse($scope.vis, resp) );
+
+		} catch(e){ console.log('ERR',e); }
+
+
                 $scope.initialShows();
                 $(".secondNode").hide();
 
@@ -671,6 +700,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 		var dataNodesCol = [];
 		var dataBuckets = [];
 		var ixx = 0;
+		var popupMenu = undefined;
 
 		var getRandomColor = function(seed){
 		    var opt = {};
@@ -685,30 +715,34 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 		    }
 		}
 
-		var mapBuckets = function(){
-		  try {
-			for (var bi=0;bi>$scope.vis.aggs.bySchemaName['first'].length;bi++){
-			  if ($scope.vis.aggs.bySchemaName['first'][bi] && $scope.vis.aggs.bySchemaName['first'][bi].params){
-				dataBuckets[bi] = $scope.vis.aggs.bySchemaName['first'][bi].params.field.displayName;
-				dataBuckets[$scope.vis.aggs.bySchemaName['first'][bi].params.field.displayName] = bi;
-			  }
-			}
-		  } catch(e) { $scope.errorCustom('ERROR MAPPING BUCKETS: '+e); }
-		}
+		var dataMetrics = $scope.dataMetrics = [];
+		$scope.processTableGroups = function (tableGroups) {
+   		  tableGroups.tables.forEach(function (table) {
+   		    table.rows.forEach(function (row, i) {
+			row.forEach(function (item, r){
+				var rootCol = table.columns[r].title.split(':')[0];
+				var rootId = r / 2;
+				if(r % 2 === 0) {
+		   		      dataMetrics.push({
+		   		        bucket: rootCol,
+		   		        id: rootId,
+		   		        value: item
+		   		      });
+				}
+			});
+		    });
+   		  });
+   		};
 
-		var buckeroo = function(data,akey){
+		try {
+			var tableGroups = tabifyAggResponse($scope.vis, resp);
+		} catch(e) { $scope.errorCustom('tablegroup error',e); }
+
+
+		var buckeroo = function(data,akey,bkey){
 		  for (var kxx in data) {
 		    if (!data.hasOwnProperty(kxx)) continue;
 		    var agg = data[kxx];
-
-		    	// Bucket Positions
-		    	var indexBuck = Object.keys(agg).filter(item => item != 'doc_count').filter(item => item != 'key');
-			if (indexBuck[0] && $scope.vis.aggs.bySchemaName['first'][ parseInt(indexBuck[0]) -1 ] ) {
-				// console.log('CHECK PAIR:',indexBuck[0], agg.key, $scope.vis.aggs.bySchemaName['first'][ parseInt(indexBuck[0]) -1 ].params.field.displayName);
-				dataBuckets[agg.key] = parseInt(indexBuck[0] - 1);
-			} else {
-				dataBuckets[agg.key] = 0;
-			}
 
 		    if (agg.key && agg.key.length>0) {
 
@@ -762,7 +796,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 		      // level down
 		      for (var ak in agg) {
 		         if (agg[ak].buckets) {
-				buckeroo(agg[ak].buckets,agg.key);
+				buckeroo(agg[ak].buckets,agg.key,akey);
 			}
 		      }
 		    }
@@ -784,7 +818,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 
 //////////////// BUCKET SCANNER ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		try {
-			mapBuckets();
+			$scope.processTableGroups(tableGroups);
 			buckeroo(resp.aggregations);
 		} catch(e) {
 	                $scope.errorCustom('OOps! Aggs to Graph error: '+e);
@@ -862,26 +896,110 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 
                 network.on("doubleClick", function (params) {
                     if($scope.vis.params.nodeFilter){
-			if(!params.nodes) return;
-			for (var zkey in dataNodesId) {
-			    if (dataNodesId[zkey] === params.nodes[0]) {
-				console.log('Double-Click Key:',zkey, params);
-				if (!dataBuckets[zkey]) {
-					$scope.errorCustom('Key '+zkey+' not available for Filtering!');
-					return;
+		      if(!params.nodes) return;
+		      //console.log('Double-Click Key:', params.nodes[0]);
+		      for (var nkey in dataNodesId) {
+			if (dataNodesId[nkey] === params.nodes[0]) {
+		          console.log('Double-Click nKey:', nkey);
+			  for (var mkey in dataMetrics) {
+			    var zbucket = 0;
+			    if (dataMetrics[mkey].value === nkey) {
+		                //console.log('Double-Click BucketId:', dataMetrics[mkey].id);
+				if (!dataMetrics[mkey].id) {
+				     zbucket = 0;
+				} else {
+				     zbucket = dataMetrics[mkey].id;
 				}
-				try {
-					/* console.log('Current Filters:', queryFilter.getFilters() ); */
-					const aggTermsConfig = $scope.vis.aggs.byTypeName.terms[dataBuckets[zkey]];
-	      				const xfilter = createTermsFilter(aggTermsConfig, zkey);
-	      				var xfilter = createTermsFilter(aggTermsConfig, zkey);
-					if (xfilter) { queryFilter.addFilters([xfilter]); }
 
-				} catch(e) { $scope.errorCustom('Filter Select: '+e); }
+			  	try {
+				        /* console.log('Current Filters:', queryFilter.getFilters() ); */
+					const aggTermsConfig = $scope.vis.aggs.byTypeName.terms[zbucket];
+	      				const xfilter = createTermsFilter(aggTermsConfig, nkey);
+	      				var xfilter = createTermsFilter(aggTermsConfig, nkey);
+					if (xfilter) { queryFilter.addFilters([xfilter]); }
+					break;
+				} catch(e) { $scope.errorCustom('Error creating Filter: '+e); return; }
 			    }
-			};
+			  }
+			}
+		      }
 		   }
 		});
+
+		// Context Menu
+		network.on('select', function(params) {
+      		  if (popupMenu !== undefined) {
+      		    popupMenu.parentNode.removeChild(popupMenu);
+      		    popupMenu = undefined;
+      		  }
+      		});
+		network.on('onFilterClick', function(params) {
+			console.log('onFilterClick',params);
+		});
+		network.on("oncontext", function (params) {
+			console.log('Context Menu');
+		        console.log(network.getScale());
+		        console.log(params);
+		        if(params.nodes && params.nodes.length>0){
+		          console.log(network.getPositions(params.nodes));
+		          var position = network.getPositions(params.nodes)[params.nodes[0]];
+		          position = network.canvasToDOM(position);
+		          params.event = "[original event]";
+		          if (popupMenu !== undefined) {
+		            popupMenu.parentNode.removeChild(popupMenu);
+		            popupMenu = undefined;
+		          }
+
+			  try {
+				  var radius = 1;
+			          for (var nkey in dataNodes) {
+				    if (dataNodes[nkey].id === params.nodes[0] && dataNodes[nkey].value) {
+			              console.log('Selected Node:', dataNodes[nkey].key);
+				      radius = parseInt(dataNodes[nkey].value) || 0;
+				    }
+			          }
+			  } catch(e) { $scope.errorCustom(e); }
+
+		          popupMenu = document.createElement("div");
+		          popupMenu.setAttribute('id','test');
+
+			  var plus = document.createElement("span");
+			  plus.setAttribute('id','kbnFilterPlus');
+			  plus.setAttribute('role','button');
+		          plus.setAttribute('class','spacer fa fa-search-plus');
+			  plus.setAttribute('ng-click', 'onFilterClick($event, false)');
+		          popupMenu.appendChild(plus);
+			  var minus = document.createElement("span");
+		          minus.setAttribute('class','spacer fa fa-search-minus');
+			  minus.setAttribute('id','kbnFilterMinus');
+			  minus.setAttribute('role','button');
+			  minus.setAttribute('ng-click', 'onFilterClick($event, true)');
+		          popupMenu.appendChild(minus);
+
+			  var plus = document.getElementById( 'kbnFilterPlus' );
+			  if (plus) { plus.onclick(function(e) {
+                              console.log('click!',e);
+			      network.emit('onFilterClick',params);
+		              popupMenu.parentNode.removeChild(popupMenu);
+		              popupMenu = undefined;
+                            });
+			  }
+
+			  // Attach Contextual Popover
+		          var offsetLeft = container.offsetLeft;
+		          var offsetTop = container.offsetTop;
+		          popupMenu.className = 'popupMenu';
+		          popupMenu.style.left = position.x - (50 * radius) + 'px';
+		          popupMenu.style.top = position.y - (50 * radius) + 'px';
+		          container.appendChild(popupMenu);
+		        }
+		});
+
+		if(container) {
+			container.addEventListener('contextmenu', function(e) {
+     			  e.preventDefault();
+     			});
+		}
 
             }else{
                 $scope.errorCustom('Error: You can only choose Node-Node or Node-Relation',1);
