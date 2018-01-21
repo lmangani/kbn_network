@@ -672,15 +672,17 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 		var dataBuckets = [];
 		var ixx = 0;
 
-		var getRandomColor = function(){
+		var getRandomColor = function(seed){
+		    var opt = {};
+		    if (seed) opt.seed = seed;
 		    while(true){
-			var confirmColor = randomColor();
-                        if(dataNodesCol.indexOf(confirmColor) == -1){
+			var confirmColor = randomColor(opt);
+                        if(dataNodesCol[seed] || dataNodesCol.indexOf(confirmColor) == -1){
                              dataNodesCol.push(confirmColor);
+                             dataNodesCol[seed] = confirmColor;
                              return confirmColor;
                         }
 		    }
-
 		}
 
 		var mapBuckets = function(){
@@ -716,14 +718,14 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, Private) {
 
 		        if (!found||!dataNodesId[agg.key]) {
 				dataNodesId[agg.key] = ixx;
-				dataNodesCol[agg.key] = randomColor();
+				// dataNodesCol[agg.key] = randomColor();
 
 			        var nodeReturn = {
 					id: dataNodesId[agg.key],
 					key: agg.key,
 					label: agg.key,
 					value: agg.doc_count,
-					color: getRandomColor(),
+					color: getRandomColor(agg.key),
 					shape: $scope.vis.params.shapeFirstNode,
         		                font : {
 		                          color: $scope.vis.params.labelColor
