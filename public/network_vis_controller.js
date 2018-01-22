@@ -4,7 +4,6 @@ import { FilterBarQueryFilterProvider } from 'ui/filter_bar/query_filter';
 import { AggTypesBucketsCreateFilterTermsProvider } from 'ui/agg_types/buckets/create_filter/terms';
 import { AggTypesBucketsCreateFilterFiltersProvider } from 'ui/agg_types/buckets/create_filter/filters';
 import { AggResponseTabifyProvider } from 'ui/agg_response/tabify/tabify';
-//import { FilterBarClickHandlerProvider } from 'ui/filter_bar/filter_bar_click_handler';
 
 // get the kibana/table_vis module, and make sure that it requires the "kibana" module if it
 // didn't already
@@ -26,22 +25,6 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, getAppState
     const createTermsFilter = Private(AggTypesBucketsCreateFilterTermsProvider);
     const createFilter = Private(AggTypesBucketsCreateFilterFiltersProvider);
     const tabifyAggResponse = Private(AggResponseTabifyProvider);
-
-    /*
-    // suspended: context scope issue
-
-    const filterBarClickHandler = Private(FilterBarClickHandlerProvider);
-    const $state = getAppState();
-    const addFilter = filterBarClickHandler($state);
-    var onFilterClick = $scope.onFilterClick = function(event, negate) {
-	    console.log('FilterClick',event,negate);
-            // Don't add filter if a link was clicked.
-            if ($(event.target).is('a')) {
-              return;
-            }
-            addFilter({ point: { aggConfigResult: aggConfigResult }, negate });
-    };
-    */
 
     $scope.errorCustom = function(message, hide){
       if(!message) message = "General Error. Please undo your changes.";
@@ -686,13 +669,6 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, getAppState
 		    popupMenu = undefined;
 		}
 
-		try {
-			$scope.tableGroups = resp;
-			console.log('FULL RESP', tabifyAggResponse($scope.vis, resp) );
-
-		} catch(e){ console.log('ERR',e); }
-
-
                 $scope.initialShows();
                 $(".secondNode").hide();
 
@@ -886,6 +862,13 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, getAppState
                 var network = new visN.Network(container, data, options);
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+		var noContext = function(){
+      		  if (popupMenu !== undefined) {
+      		    popupMenu.parentNode.removeChild(popupMenu);
+      		    popupMenu = undefined;
+      		  }
+		}
+
                 $scope.startDynamicResize(network);
 
                 network.on("afterDrawing", function (canvasP) {
@@ -899,14 +882,11 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, getAppState
                 network.on("doubleClick", function (params) {
                     if($scope.vis.params.nodeFilter){
 		      if(!params.nodes) return;
-		      //console.log('Double-Click Key:', params.nodes[0]);
 		      for (var nkey in dataNodesId) {
 			if (dataNodesId[nkey] === params.nodes[0]) {
-		          console.log('Double-Click nKey:', nkey);
 			  for (var mkey in dataMetrics) {
 			    var zbucket = 0;
 			    if (dataMetrics[mkey].value === nkey) {
-		                //console.log('Double-Click BucketId:', dataMetrics[mkey].id);
 				if (!dataMetrics[mkey].id) {
 				     zbucket = 0;
 				} else {
@@ -926,12 +906,12 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, getAppState
 		   }
 		});
 
-		// Context Menu
+		// Context Menu + dragStart
 		network.on('select', function(params) {
-      		  if (popupMenu !== undefined) {
-      		    popupMenu.parentNode.removeChild(popupMenu);
-      		    popupMenu = undefined;
-      		  }
+			noContext();
+      		});
+		network.on('dragStart', function(params) {
+			noContext();
       		});
 
 		// Context Click Event
@@ -939,16 +919,13 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, getAppState
 	  	  try {
 		      var negate = params.negate || false;
 		      var node = params.node;
-		      console.log('onFilterClick',negate,node,dataNodes[node]);
-		      popupMenu.parentNode.removeChild(popupMenu);
-		      popupMenu = undefined;
+		      // console.log('onFilterClick',negate,node,dataNodes[node]);
+		      noContext();
 		      // Create Filter
 		      for (var nkey in dataNodesId) {
 			if (dataNodesId[nkey] === node ) {
-			  console.log('nkey',nkey);
 			  var zbucket = 0;
 			  for (var mkey in dataMetrics) {
-			    console.log('mkey',mkey);
 			    if (dataMetrics[mkey].value === nkey) {
 				if (!dataMetrics[mkey].id) {
 				     zbucket = 0;
@@ -958,9 +935,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, getAppState
 				const aggTermsConfig = $scope.vis.aggs.byTypeName.terms[zbucket];
 	      			var xfilter = createTermsFilter(aggTermsConfig, nkey);
 				if (xfilter) {
-					console.log('XPRE',xfilter);
 					if (negate) xfilter.meta.negate = true;
-					console.log('XPOST',xfilter);
 					queryFilter.addFilters([xfilter]);
 				}
 				break;
@@ -973,23 +948,16 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, getAppState
 
 		// Context Display
 		network.on("oncontext", function (params) {
-			console.log('Context Menu');
-		        console.log(network.getScale());
-		        console.log(params);
 		        if(params.nodes && params.nodes.length>0){
-		          console.log(network.getPositions(params.nodes));
 		          var position = network.getPositions(params.nodes)[params.nodes[0]];
 		          position = network.canvasToDOM(position);
 		          params.event = "[original event]";
-		          if (popupMenu !== undefined) {
-		            popupMenu.parentNode.removeChild(popupMenu);
-		            popupMenu = undefined;
-		          }
+		          noContext();
 			  try {
 				  var radius = 1;
 			          for (var nkey in dataNodes) {
 				    if (dataNodes[nkey].id === params.nodes[0] && dataNodes[nkey].value) {
-			              console.log('Selected Node:', dataNodes[nkey].key);
+			              //console.log('Selected Node:', dataNodes[nkey].key);
 				      radius = parseInt(dataNodes[nkey].value) || 1;
 				    }
 			          }
@@ -998,7 +966,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, getAppState
 		          popupMenu = document.createElement("div");
 		          popupMenu.setAttribute('id','visjsContext');
 
-			  // Alias network - replace w/ proper directive!
+			  // Alias hack pipe events towards network - replace w/ proper directive!
 			  window.network = network;
 
 			  var plus = document.createElement("span");
