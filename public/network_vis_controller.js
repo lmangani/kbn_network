@@ -4,7 +4,7 @@ import { FilterBarQueryFilterProvider } from 'ui/filter_bar/query_filter';
 import { AggTypesBucketsCreateFilterTermsProvider } from 'ui/agg_types/buckets/create_filter/terms';
 import { AggTypesBucketsCreateFilterFiltersProvider } from 'ui/agg_types/buckets/create_filter/filters';
 import { AggResponseTabifyProvider } from 'ui/agg_response/tabify/tabify';
-import { FilterBarClickHandlerProvider } from 'ui/filter_bar/filter_bar_click_handler';
+//import { FilterBarClickHandlerProvider } from 'ui/filter_bar/filter_bar_click_handler';
 
 // get the kibana/table_vis module, and make sure that it requires the "kibana" module if it
 // didn't already
@@ -27,11 +27,13 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, getAppState
     const createFilter = Private(AggTypesBucketsCreateFilterFiltersProvider);
     const tabifyAggResponse = Private(AggResponseTabifyProvider);
 
+    /*
+    // suspended: context scope issue
 
     const filterBarClickHandler = Private(FilterBarClickHandlerProvider);
     const $state = getAppState();
     const addFilter = filterBarClickHandler($state);
-    var onFilterClick = $scope.onFilterClick = (event, negate) => {
+    var onFilterClick = $scope.onFilterClick = function(event, negate) {
 	    console.log('FilterClick',event,negate);
             // Don't add filter if a link was clicked.
             if ($(event.target).is('a')) {
@@ -39,7 +41,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, getAppState
             }
             addFilter({ point: { aggConfigResult: aggConfigResult }, negate });
     };
-
+    */
 
     $scope.errorCustom = function(message, hide){
       if(!message) message = "General Error. Please undo your changes.";
@@ -910,11 +912,9 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, getAppState
 				} else {
 				     zbucket = dataMetrics[mkey].id;
 				}
-
 			  	try {
 				        /* console.log('Current Filters:', queryFilter.getFilters() ); */
 					const aggTermsConfig = $scope.vis.aggs.byTypeName.terms[zbucket];
-	      				const xfilter = createTermsFilter(aggTermsConfig, nkey);
 	      				var xfilter = createTermsFilter(aggTermsConfig, nkey);
 					if (xfilter) { queryFilter.addFilters([xfilter]); }
 					break;
@@ -933,9 +933,45 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, getAppState
       		    popupMenu = undefined;
       		  }
       		});
+
+		// Context Click Event
 		network.on('onFilterClick', function(params) {
-			console.log('onFilterClick',params);
+	  	  try {
+		      var negate = params.negate || false;
+		      var node = params.node;
+		      console.log('onFilterClick',negate,node,dataNodes[node]);
+		      popupMenu.parentNode.removeChild(popupMenu);
+		      popupMenu = undefined;
+		      // Create Filter
+		      for (var nkey in dataNodesId) {
+			if (dataNodesId[nkey] === node ) {
+			  console.log('nkey',nkey);
+			  var zbucket = 0;
+			  for (var mkey in dataMetrics) {
+			    console.log('mkey',mkey);
+			    if (dataMetrics[mkey].value === nkey) {
+				if (!dataMetrics[mkey].id) {
+				     zbucket = 0;
+				} else {
+				     zbucket = dataMetrics[mkey].id;
+				}
+				const aggTermsConfig = $scope.vis.aggs.byTypeName.terms[zbucket];
+	      			var xfilter = createTermsFilter(aggTermsConfig, nkey);
+				if (xfilter) {
+					console.log('XPRE',xfilter);
+					if (negate) xfilter.meta.negate = true;
+					console.log('XPOST',xfilter);
+					queryFilter.addFilters([xfilter]);
+				}
+				break;
+			    }
+			  }
+			}
+		      }
+		  } catch(e) { $scope.errorCustom('Error creating Filter: '+e); }
 		});
+
+		// Context Display
 		network.on("oncontext", function (params) {
 			console.log('Context Menu');
 		        console.log(network.getScale());
@@ -949,48 +985,43 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, getAppState
 		            popupMenu.parentNode.removeChild(popupMenu);
 		            popupMenu = undefined;
 		          }
-
 			  try {
 				  var radius = 1;
 			          for (var nkey in dataNodes) {
 				    if (dataNodes[nkey].id === params.nodes[0] && dataNodes[nkey].value) {
 			              console.log('Selected Node:', dataNodes[nkey].key);
-				      radius = parseInt(dataNodes[nkey].value) || 0;
+				      radius = parseInt(dataNodes[nkey].value) || 1;
 				    }
 			          }
 			  } catch(e) { $scope.errorCustom(e); }
 
 		          popupMenu = document.createElement("div");
-		          popupMenu.setAttribute('id','test');
+		          popupMenu.setAttribute('id','visjsContext');
+
+			  // Alias network - replace w/ proper directive!
+			  window.network = network;
 
 			  var plus = document.createElement("span");
 			  plus.setAttribute('id','kbnFilterPlus');
 			  plus.setAttribute('role','button');
+			  plus.setAttribute('onclick',"window.network.emit('onFilterClick',{ node:"+params.nodes[0]+",negate: false });");
 		          plus.setAttribute('class','spacer fa fa-search-plus');
-			  plus.setAttribute('ng-click', 'onFilterClick($event, false)');
 		          popupMenu.appendChild(plus);
+
 			  var minus = document.createElement("span");
 		          minus.setAttribute('class','spacer fa fa-search-minus');
 			  minus.setAttribute('id','kbnFilterMinus');
 			  minus.setAttribute('role','button');
-			  minus.setAttribute('ng-click', 'onFilterClick($event, true)');
+			  minus.setAttribute('onclick',"window.network.emit('onFilterClick',{ node:"+params.nodes[0]+",negate: true });");
 		          popupMenu.appendChild(minus);
-
-			  var plus = document.getElementById( 'kbnFilterPlus' );
-			  if (plus) { plus.onclick(function(e) {
-                              console.log('click!',e);
-			      network.emit('onFilterClick',params);
-		              popupMenu.parentNode.removeChild(popupMenu);
-		              popupMenu = undefined;
-                            });
-			  }
 
 			  // Attach Contextual Popover
 		          var offsetLeft = container.offsetLeft;
 		          var offsetTop = container.offsetTop;
 		          popupMenu.className = 'popupMenu';
-		          popupMenu.style.left = position.x - (50 * radius) + 'px';
-		          popupMenu.style.top = position.y - (50 * radius) + 'px';
+		          //popupMenu.style.left = position.x - (50 + radius) + 'px';
+		          popupMenu.style.left = position.x - (25) + 'px';
+		          popupMenu.style.top = position.y - (25) + 'px';
 		          container.appendChild(popupMenu);
 		        }
 		});
@@ -998,6 +1029,7 @@ module.controller('KbnNetworkVisController', function ($scope, $sce, getAppState
 		if(container) {
 			container.addEventListener('contextmenu', function(e) {
      			  e.preventDefault();
+			  return false;
      			});
 		}
 
